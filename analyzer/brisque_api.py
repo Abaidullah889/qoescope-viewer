@@ -153,7 +153,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
 
       if (Hls.isSupported()) {
         const hls = new Hls({
-          startPosition: 0,
+          autoStartLoad: false,
           maxBufferLength: 60,
           maxMaxBufferLength: 120,
           liveDurationInfinity: true,
@@ -163,6 +163,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          hls.startLoad(0);
           setLive(true);
           video.play().catch(() => {});
         });
