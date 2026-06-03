@@ -158,6 +158,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
           liveMaxLatencyDurationCount: 20,
           maxBufferLength: 60,
           maxMaxBufferLength: 120,
+          liveDurationInfinity: true,
         });
         currentHls = hls;
         hls.loadSource(src);
