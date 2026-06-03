@@ -134,10 +134,10 @@ _VIEWER_HTML = """<!DOCTYPE html>
 
       if (Hls.isSupported()) {
         const hls = new Hls({
-          lowLatencyMode: true,
-          liveSyncDurationCount: 1,
-          liveMaxLatencyDurationCount: 2,
-          maxBufferLength: 2,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
         });
         hls.loadSource(src);
         hls.attachMedia(video);
