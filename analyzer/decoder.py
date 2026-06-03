@@ -697,7 +697,7 @@ def hls_writer():
         "-i", SDP_FILE,
         "-c:v", "copy",
         "-f", "hls",
-        "-hls_time", "2",
+        "-hls_time", "1",
         "-hls_list_size", "10",
         "-hls_flags", "delete_segments+append_list+omit_endlist",
         "-hls_init_time", "0",
