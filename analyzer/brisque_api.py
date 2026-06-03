@@ -148,7 +148,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
 
       if (Hls.isSupported()) {
         const hls = new Hls({
-          liveSyncDurationCount: 5,
+          liveSyncDurationCount: 2,
           liveMaxLatencyDurationCount: 20,
           maxBufferLength: 60,
           maxMaxBufferLength: 120,
