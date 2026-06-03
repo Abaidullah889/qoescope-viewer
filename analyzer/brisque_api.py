@@ -7,8 +7,6 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 METRICS_JSON = "/app/metrics/brisque_metrics.json"
 HLS_DIR = "/app/metrics/hls"
 
-_stream_version = 0
-_last_m3u8_mtime = 0.0
 
 app = FastAPI(title="BRISQUE Metrics API")
 
@@ -39,15 +37,11 @@ def health():
 
 @app.get("/stream-version")
 def stream_version():
-    global _stream_version, _last_m3u8_mtime
-    m3u8 = os.path.join(HLS_DIR, "stream.m3u8")
-    if os.path.exists(m3u8):
-        mtime = os.path.getmtime(m3u8)
-        # if m3u8 was recreated (mtime went backwards or gap > 5s), bump version
-        if mtime < _last_m3u8_mtime - 1 or (mtime - _last_m3u8_mtime) > 5:
-            _stream_version += 1
-        _last_m3u8_mtime = mtime
-    return {"version": _stream_version}
+    stream_id_file = os.path.join(HLS_DIR, "stream_id.txt")
+    if not os.path.exists(stream_id_file):
+        return {"version": "0"}
+    with open(stream_id_file) as f:
+        return {"version": f.read().strip()}
 
 
 @app.get("/hls/{filename}")

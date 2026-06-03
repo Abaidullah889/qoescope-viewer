@@ -678,6 +678,9 @@ def _clear_hls_segments():
                 os.remove(os.path.join(HLS_DIR, f))
             except Exception:
                 pass
+    stream_id = str(int(time.time()))
+    with open(os.path.join(HLS_DIR, "stream_id.txt"), "w") as f:
+        f.write(stream_id)
 
 
 def hls_writer():
