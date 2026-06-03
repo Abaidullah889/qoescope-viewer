@@ -1,0 +1,111 @@
+services:
+
+
+  sender:
+    build: ./sender
+    container_name: sender
+    networks:
+      - stream-net
+    volumes:
+      - ./videos:/data        # drop video in ./videos folder
+    depends_on:
+      - probe
+
+
+  probe:
+    build: ./probe
+    container_name: probe
+    networks:
+      - stream-net
+    privileged: true          # required for eBPF/XDP
+    ports:
+      - "8000:8000"           # metrics API
+      - "5004:5004/udp"        # RTP stream
+
+
+  analyzer:
+    build: ./analyzer
+    container_name: analyzer
+    networks:
+      - stream-net
+    runtime: nvidia     
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    ports:
+      - "9101:9101"         
+    depends_on:
+      - probe
+
+
+  aggregator:
+    build: ./aggregator
+    container_name: aggregator
+    networks:
+      - stream-net
+    ports:
+      - "9000:9000" 
+    environment:
+      - PROBE_URL=http://probe:8000/metrics
+      - BRISQUE_URL=http://analyzer:9101/metrics
+      - POLL_INTERVAL_S=1
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUXDB_TOKEN}
+      - INFLUX_ORG=qoe-org
+      - INFLUX_BUCKET=qoe
+      - MEASUREMENT=qoe_metrics
+      - BRISQUE_MEAS=brisque_metrics
+      - STREAM_ID=stream1
+      - SOURCE=probe
+    depends_on:
+      - probe
+      - analyzer
+      - influxdb
+
+      
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    networks:
+      - stream-net
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb2-data:/var/lib/influxdb2
+      - influxdb2-config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=qoe-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=qoe
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+
+
+  grafana:
+    image: grafana/grafana:12.4.1
+    container_name: grafana
+    networks:
+      - stream-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=1s
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+    depends_on:
+      - influxdb
+
+networks:
+  stream-net:
+    driver: bridge
+
+volumes:
+  influxdb2-data:
+  influxdb2-config:
+  grafana-data:

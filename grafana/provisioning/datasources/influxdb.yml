@@ -1,0 +1,19 @@
+# Automatically connects Grafana to InfluxDB on startup
+
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    uid: influxdb-qoe
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: qoe-org
+      defaultBucket: qoe
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUXDB_TOKEN}
+    isDefault: true
+    editable: true

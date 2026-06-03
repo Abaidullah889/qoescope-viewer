@@ -1,0 +1,2283 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Real-time QoE stream monitoring",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Stream Health",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Throughput (Mbps)",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"throughput_mbps\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 5
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 24
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Incomplete Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Frame Stats",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Total Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 24
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "I-Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"i_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 5
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "P-Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"p_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 20
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Incomplete Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Incomplete I-Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_i_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Incomplete P-Frames / s",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_p_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Throughput & Traffic",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Throughput (Mbps)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"throughput_mbps\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "A",
+          "hide": false,
+          "alias": "Throughput Mbps"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Throughput Mbps"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#00d4ff"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Packets/s",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"pkts_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "A",
+          "hide": false,
+          "alias": "Pkts/s"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pkts/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73bf69"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Frame Analysis",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Frame Rates (per second)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "A",
+          "hide": false,
+          "alias": "All Frames/s"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"i_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "B",
+          "hide": false,
+          "alias": "I-Frames/s"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"p_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "C",
+          "hide": false,
+          "alias": "P-Frames/s"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "All Frames/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffffff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "I-Frames/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f2cc0c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P-Frames/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff9830"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Incomplete Frames (per second)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "A",
+          "hide": false,
+          "alias": "Incomplete/s"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_i_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "B",
+          "hide": false,
+          "alias": "Inc. I-Frames/s"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_p_frames_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "C",
+          "hide": false,
+          "alias": "Inc. P-Frames/s"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Incomplete/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f2495c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Inc. I-Frames/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff7383"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Inc. P-Frames/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#cc3245"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "Packet Loss",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Packet Loss %/s",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"pkt_loss_pct_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: true)\n  |> fill(usePrevious: true)\n  |> movingAverage(n: 5)",
+          "refId": "A",
+          "hide": false,
+          "alias": "Loss %/s"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Loss %/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f2495c"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Lost Packets (total)",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 29
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"lost_packets_total\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Received Packets (total)",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 29
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"received_packets_total\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Expected Packets (total)",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 29
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"expected_packets_total\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Overall Loss %",
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"qoe_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"pkt_loss_pct\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 24,
+      "type": "row",
+      "title": "Video Quality (BRISQUE)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "BRISQUE Score (current)",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 38
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_last\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "Decode Err",
+                  "color": "dark-red",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Incomplete Frames %/s",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 38
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_pct_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "Decode Err",
+                  "color": "dark-red",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Decode Errors /s",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 38
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"decode_errors_per_s\")\n  |> group(columns: [\"_field\"])\n  |> last()",
+          "refId": "A",
+          "hide": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "Decode Err",
+                  "color": "dark-red",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "BRISQUE quality vs incomplete frames",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_avg\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "A",
+          "hide": false,
+          "alias": "BRISQUE avg"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_min\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "B",
+          "hide": false,
+          "alias": "BRISQUE min"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_max\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "C",
+          "hide": false,
+          "alias": "BRISQUE max"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"incomplete_pct_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "D",
+          "hide": false,
+          "alias": "Incomplete frames %"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "min",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BRISQUE avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BRISQUE min"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    3
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BRISQUE max"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    3
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Incomplete frames %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Incomplete %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "BRISQUE avg / min / max over time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_avg\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "A",
+          "hide": false,
+          "alias": "avg"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_min\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "B",
+          "hide": false,
+          "alias": "min"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"brisque_max\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "C",
+          "hide": false,
+          "alias": "max"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "min",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "lineInterpolation": "smooth",
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "min"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    3
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    3
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Decode errors per second",
+      "description": "Spikes = incomplete I-frames whose bitstream was too corrupted for avcodec. These frames emit brisque=-1.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-qoe"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-qoe"
+          },
+          "query": "from(bucket: \"qoe\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"brisque_metrics\")\n  |> filter(fn: (r) => r.stream_id == \"${stream}\")\n  |> filter(fn: (r) => r._field == \"decode_errors_per_s\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)\n  |> fill(usePrevious: true)",
+          "refId": "A",
+          "hide": false,
+          "alias": "Decode errors/s"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "lineInterpolation": "stepAfter",
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "bars"
+          },
+          "color": {
+            "mode": "fixed"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Decode errors/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "refresh": "1s",
+  "schemaVersion": 38,
+  "tags": [
+    "qoe",
+    "streaming"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "stream1",
+          "value": "stream1"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-qoe"
+        },
+        "definition": "from(bucket: \"qoe\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"qoe_metrics\") |> keep(columns: [\"stream_id\"]) |> distinct(column: \"stream_id\")",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Stream",
+        "multi": false,
+        "name": "stream",
+        "options": [],
+        "query": "from(bucket: \"qoe\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"qoe_metrics\") |> keep(columns: [\"stream_id\"]) |> distinct(column: \"stream_id\")",
+        "refresh": 2,
+        "regex": "",
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "QoE Stream Monitor",
+  "uid": "qoe-stream-monitor",
+  "version": 1
+}

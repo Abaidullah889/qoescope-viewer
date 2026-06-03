@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Logs
+*.log
+
+# BPF build artifacts
+*.o
+*.ll
+
+
+# Virtual environment
+venv/
+.env
+
+# IDE
+*.vscode/
+*.idea/

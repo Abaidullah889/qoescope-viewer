@@ -1,0 +1,13 @@
+# Tells Grafana where to find dashboard JSON files
+# Every .json file in the path below is loaded automatically
+
+apiVersion: 1
+
+providers:
+  - name: QoEScope Dashboards
+    type: file
+    disableDeletion: false        # allow deleting from UI
+    allowUiUpdates: true          # allow editing dashboards from UI
+    options:
+      path: /etc/grafana/dashboards   # where JSON files live inside container
+      foldersFromFilesStructure: true
