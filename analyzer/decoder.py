@@ -671,6 +671,15 @@ def _metrics_aggregator():
         prev_incomplete = ic
 
 
+def _clear_hls_segments():
+    for f in os.listdir(HLS_DIR):
+        if f.endswith(".ts") or f.endswith(".m3u8"):
+            try:
+                os.remove(os.path.join(HLS_DIR, f))
+            except Exception:
+                pass
+
+
 def hls_writer():
     cmd = [
         "ffmpeg", "-y",
@@ -688,9 +697,11 @@ def hls_writer():
     ]
     log(f"HLS writer started: RTP stream copy → {HLS_DIR}/stream.m3u8")
     while True:
+        _clear_hls_segments()
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         proc.wait()
-        log("[WARN] HLS FFmpeg exited, restarting in 2s...")
+        log("[WARN] HLS FFmpeg exited, clearing segments and restarting in 2s...")
+        _clear_hls_segments()
         time.sleep(2)
 
 

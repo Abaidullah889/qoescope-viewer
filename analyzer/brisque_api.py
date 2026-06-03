@@ -7,6 +7,9 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 METRICS_JSON = "/app/metrics/brisque_metrics.json"
 HLS_DIR = "/app/metrics/hls"
 
+_stream_version = 0
+_last_m3u8_mtime = 0.0
+
 app = FastAPI(title="BRISQUE Metrics API")
 
 
@@ -32,6 +35,19 @@ def get_metrics():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/stream-version")
+def stream_version():
+    global _stream_version, _last_m3u8_mtime
+    m3u8 = os.path.join(HLS_DIR, "stream.m3u8")
+    if os.path.exists(m3u8):
+        mtime = os.path.getmtime(m3u8)
+        # if m3u8 was recreated (mtime went backwards or gap > 5s), bump version
+        if mtime < _last_m3u8_mtime - 1 or (mtime - _last_m3u8_mtime) > 5:
+            _stream_version += 1
+        _last_m3u8_mtime = mtime
+    return {"version": _stream_version}
 
 
 @app.get("/hls/{filename}")
@@ -129,8 +145,12 @@ _VIEWER_HTML = """<!DOCTYPE html>
       info.textContent = on ? 'Stream live' : 'Reconnecting…';
     }
 
+    let currentHls = null;
+    let knownVersion = null;
+
     function tryLoad() {
       errDiv.style.display = 'none';
+      if (currentHls) { currentHls.destroy(); currentHls = null; }
 
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -139,6 +159,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
           maxBufferLength: 60,
           maxMaxBufferLength: 120,
         });
+        currentHls = hls;
         hls.loadSource(src);
         hls.attachMedia(video);
 
@@ -150,7 +171,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (data.fatal) {
             setLive(false);
-            setTimeout(() => { hls.destroy(); tryLoad(); }, 3000);
+            setTimeout(tryLoad, 3000);
           }
         });
 
@@ -166,7 +187,25 @@ _VIEWER_HTML = """<!DOCTYPE html>
       }
     }
 
+    // Poll for new stream — reload immediately when stream restarts
+    async function watchVersion() {
+      try {
+        const r = await fetch('/stream-version');
+        const { version } = await r.json();
+        if (knownVersion === null) {
+          knownVersion = version;
+        } else if (version !== knownVersion) {
+          knownVersion = version;
+          setLive(false);
+          info.textContent = 'New stream detected, reloading…';
+          setTimeout(tryLoad, 500);
+        }
+      } catch (_) {}
+      setTimeout(watchVersion, 2000);
+    }
+
     tryLoad();
+    watchVersion();
   </script>
 </body>
 </html>"""
