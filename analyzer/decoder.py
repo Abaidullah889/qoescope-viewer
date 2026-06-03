@@ -678,9 +678,14 @@ def _clear_hls_segments():
                 os.remove(os.path.join(HLS_DIR, f))
             except Exception:
                 pass
-    stream_id = str(int(time.time()))
-    with open(os.path.join(HLS_DIR, "stream_id.txt"), "w") as f:
-        f.write(stream_id)
+
+
+def _write_stream_id():
+    try:
+        with open(os.path.join(HLS_DIR, "stream_id.txt"), "w") as f:
+            f.write(str(int(time.time())))
+    except Exception:
+        pass
 
 
 def hls_writer():
@@ -740,8 +745,11 @@ while True:
         last_seq = seq
         incomplete = False
         saw_marker = False
+        _write_stream_id()
+        log(f"New stream started: SSRC={ssrc:#010x}")
 
     elif ssrc != cur_ssrc:
+        log(f"New stream detected: SSRC changed {cur_ssrc:#010x} → {ssrc:#010x}")
         cur_ssrc = ssrc
         cur_ts = ts
         cur_type = 0
@@ -749,6 +757,7 @@ while True:
         incomplete = False
         last_seq = seq
         current_frags = []
+        _write_stream_id()
 
     elif ts != cur_ts:
         # no marker means frame is incomplete
