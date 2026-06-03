@@ -698,8 +698,8 @@ def hls_writer():
         "-c:v", "copy",
         "-f", "hls",
         "-hls_time", "1",
-        "-hls_list_size", "10",
-        "-hls_flags", "delete_segments+append_list+omit_endlist",
+        "-hls_list_size", "0",
+        "-hls_flags", "append_list+omit_endlist",
         "-hls_init_time", "0",
         f"{HLS_DIR}/stream.m3u8",
     ]

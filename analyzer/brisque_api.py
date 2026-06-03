@@ -153,8 +153,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
 
       if (Hls.isSupported()) {
         const hls = new Hls({
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 20,
+          startPosition: 0,
           maxBufferLength: 60,
           maxMaxBufferLength: 120,
           liveDurationInfinity: true,
