@@ -44,6 +44,11 @@ def stream_version():
         return {"version": f.read().strip()}
 
 
+@app.get("/hls.js")
+def hlsjs():
+    return FileResponse("/app/hls.min.js", media_type="application/javascript")
+
+
 @app.get("/hls/{filename}")
 def hls_file(filename: str):
     if ".." in filename or "/" in filename:
@@ -66,7 +71,7 @@ _VIEWER_HTML = """<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QoEScope — Live Stream</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="/hls.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
