@@ -163,8 +163,16 @@ _VIEWER_HTML = """<!DOCTYPE html>
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          hls.startLoad(0);
+          hls.startLoad(-1);
           setLive(true);
+        });
+
+        // Once seekable range is known, jump to the very first frame
+        video.addEventListener('canplay', function seekToStart() {
+          video.removeEventListener('canplay', seekToStart);
+          if (video.seekable.length > 0) {
+            video.currentTime = video.seekable.start(0);
+          }
           video.play().catch(() => {});
         });
 
