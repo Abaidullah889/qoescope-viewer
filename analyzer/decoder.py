@@ -675,12 +675,15 @@ def hls_writer():
     cmd = [
         "ffmpeg", "-y",
         "-protocol_whitelist", "file,udp,rtp",
+        "-fflags", "nobuffer",
+        "-flags", "low_delay",
         "-i", SDP_FILE,
         "-c:v", "copy",
         "-f", "hls",
-        "-hls_time", "1",
-        "-hls_list_size", "3",
-        "-hls_flags", "delete_segments+append_list",
+        "-hls_time", "0.5",
+        "-hls_list_size", "2",
+        "-hls_flags", "delete_segments+append_list+omit_endlist",
+        "-hls_init_time", "0",
         f"{HLS_DIR}/stream.m3u8",
     ]
     log(f"HLS writer started: RTP stream copy → {HLS_DIR}/stream.m3u8")
