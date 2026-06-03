@@ -138,7 +138,6 @@ _VIEWER_HTML = """<!DOCTYPE html>
           liveSyncDurationCount: 1,
           liveMaxLatencyDurationCount: 2,
           maxBufferLength: 2,
-          maxLiveSyncPlaybackRate: 1.5,
         });
         hls.loadSource(src);
         hls.attachMedia(video);
