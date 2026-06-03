@@ -680,12 +680,16 @@ def _clear_hls_segments():
                 pass
 
 
+_hls_restart_event = threading.Event()
+
+
 def _write_stream_id():
     try:
         with open(os.path.join(HLS_DIR, "stream_id.txt"), "w") as f:
             f.write(str(int(time.time())))
     except Exception:
         pass
+    _hls_restart_event.set()
 
 
 def hls_writer():
@@ -706,11 +710,22 @@ def hls_writer():
     log(f"HLS writer started: RTP stream copy → {HLS_DIR}/stream.m3u8")
     while True:
         _clear_hls_segments()
+        _hls_restart_event.clear()
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        proc.wait()
-        log("[WARN] HLS FFmpeg exited, clearing segments and restarting in 2s...")
+
+        # wait for FFmpeg to exit OR a new stream signal
+        while proc.poll() is None:
+            if _hls_restart_event.wait(timeout=0.5):
+                log("New stream detected — restarting HLS FFmpeg")
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    proc.kill()
+                break
+
         _clear_hls_segments()
-        time.sleep(2)
+        time.sleep(0.5)
 
 
 threading.Thread(target=recv_worker, daemon=True).start()
