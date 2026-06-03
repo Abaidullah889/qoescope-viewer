@@ -45,7 +45,6 @@ recv_queue = queue.Queue(maxsize=10000)
 frame_queue = queue.Queue(maxsize=500)
 brisque_queue = queue.Queue(maxsize=500)
 result_queue = queue.Queue(maxsize=500)
-hls_queue = queue.Queue(maxsize=30)
 
 _frame_seq = 0
 _frame_seq_lock = threading.Lock()
@@ -362,22 +361,9 @@ def decode_worker():
             packet = av.Packet(annexb)
             frames = codec.decode(packet)
             for frame in frames:
-                hls_img = frame.to_ndarray(format="bgr24")
                 if should_measure:
-                    decoded_img = hls_img
-                # push every frame to HLS stream, drop oldest if full
-                try:
-                    hls_queue.put_nowait(hls_img)
-                except queue.Full:
-                    try:
-                        hls_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                    try:
-                        hls_queue.put_nowait(hls_img)
-                    except queue.Full:
-                        pass
-                break
+                    decoded_img = frame.to_ndarray(format="bgr24")
+                    break
         except Exception as e:
             with _lock:
                 decode_errors += 1
@@ -593,6 +579,10 @@ def recv_worker():
         except (ValueError, OSError):
             continue
         try:
+            _hls_fwd_sock.sendto(data, ("127.0.0.1", HLS_RTP_PORT))
+        except Exception:
+            pass
+        try:
             recv_queue.put_nowait(data)
         except queue.Full:
             try:
@@ -607,9 +597,25 @@ def recv_worker():
 
 METRICS_JSON = "/app/metrics/brisque_metrics.json"
 HLS_DIR = "/app/metrics/hls"
+SDP_FILE = "/app/metrics/stream.sdp"
+HLS_RTP_PORT = 5005
 
 os.makedirs(os.path.dirname(METRICS_JSON), exist_ok=True)
 os.makedirs(HLS_DIR, exist_ok=True)
+
+with open(SDP_FILE, "w") as _sdp:
+    _sdp.write(
+        "v=0\r\n"
+        "o=- 0 0 IN IP4 127.0.0.1\r\n"
+        "s=QoEScope\r\n"
+        "c=IN IP4 127.0.0.1\r\n"
+        "t=0 0\r\n"
+        f"m=video {HLS_RTP_PORT} RTP/AVP 96\r\n"
+        "a=rtpmap:96 H264/90000\r\n"
+        "a=fmtp:96 packetization-mode=1\r\n"
+    )
+
+_hls_fwd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 _brisque_window = []
 _brisque_window_lock = threading.Lock()
@@ -665,63 +671,24 @@ def _metrics_aggregator():
         prev_incomplete = ic
 
 
-_hls_proc = None
-_hls_proc_lock = threading.Lock()
-_hls_frame_dims = None
-
-
 def hls_writer():
-    global _hls_proc, _hls_frame_dims
-
+    cmd = [
+        "ffmpeg", "-y",
+        "-protocol_whitelist", "file,udp,rtp",
+        "-i", SDP_FILE,
+        "-c:v", "copy",
+        "-f", "hls",
+        "-hls_time", "1",
+        "-hls_list_size", "3",
+        "-hls_flags", "delete_segments+append_list",
+        f"{HLS_DIR}/stream.m3u8",
+    ]
+    log(f"HLS writer started: RTP stream copy → {HLS_DIR}/stream.m3u8")
     while True:
-        try:
-            img = hls_queue.get(timeout=1.0)
-        except queue.Empty:
-            continue
-
-        h, w = img.shape[:2]
-
-        with _hls_proc_lock:
-            if _hls_proc is None or _hls_frame_dims != (w, h):
-                if _hls_proc is not None:
-                    try:
-                        _hls_proc.stdin.close()
-                        _hls_proc.wait(timeout=2)
-                    except Exception:
-                        pass
-                _hls_frame_dims = (w, h)
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-f", "rawvideo", "-pix_fmt", "bgr24",
-                    "-s", f"{w}x{h}", "-r", "25",
-                    "-i", "pipe:0",
-                    "-c:v", "libx264",
-                    "-preset", "ultrafast",
-                    "-tune", "zerolatency",
-                    "-g", "25",
-                    "-f", "hls",
-                    "-hls_time", "1",
-                    "-hls_list_size", "3",
-                    "-hls_flags", "delete_segments+append_list",
-                    f"{HLS_DIR}/stream.m3u8",
-                ]
-                _hls_proc = subprocess.Popen(
-                    cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                log(f"HLS writer started: {w}x{h} → {HLS_DIR}/stream.m3u8")
-            proc = _hls_proc
-
-        try:
-            proc.stdin.write(img.tobytes())
-        except (BrokenPipeError, OSError):
-            log("[WARN] HLS FFmpeg pipe broke, will restart on next frame")
-            with _hls_proc_lock:
-                _hls_proc = None
-
-        hls_queue.task_done()
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc.wait()
+        log("[WARN] HLS FFmpeg exited, restarting in 2s...")
+        time.sleep(2)
 
 
 threading.Thread(target=recv_worker, daemon=True).start()
