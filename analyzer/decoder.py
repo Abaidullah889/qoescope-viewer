@@ -32,11 +32,13 @@ LOG_FILE = "decoder.log"
 BRISQUE_EVERY = 1
 BRISQUE_WORKERS = 4
 
-# ── Live received-video display (MJPEG) ───────────────────────
+# ── Live received-video display (lossless MJPEG/PNG) ──────────
+# Frames are delivered exactly as decoded: native resolution, no resampling,
+# and lossless PNG encoding (no re-compression artifacts). The picture shown is
+# pixel-for-pixel what was received over the network.
 DISPLAY_HTTP_PORT = 9102      # MJPEG server port (exposed in docker-compose)
-DISPLAY_FPS = 25              # cap encoded frames per second
-DISPLAY_MAX_WIDTH = 1280      # downscale wider frames before JPEG encode
-DISPLAY_JPEG_QUALITY = 80     # cv2 JPEG quality (0-100)
+DISPLAY_PNG_COMPRESSION = 1   # PNG zlib level 0-9; lossless at every level,
+                              # only affects encode speed vs. size (1 = fast)
 
 BRISQUE_MODEL = "/app/brisque_model_live.yml"
 BRISQUE_RANGE = "/app/brisque_range_live.yml"
@@ -726,15 +728,14 @@ def _metrics_aggregator():
 
 
 def display_worker():
-    """Encode decoded frames to JPEG at a capped rate and publish them.
+    """Losslessly encode decoded frames to PNG as they arrive and publish them.
 
-    Pulls decoded ndarrays from display_queue, always jumps to the newest one,
-    throttles to DISPLAY_FPS, optionally downscales, JPEG-encodes, and stores the
-    bytes in latest_frame. Skips all work when no client is connected.
+    Pulls decoded ndarrays from display_queue and PNG-encodes each one as soon as
+    it arrives — native resolution, no resampling, no lossy compression — then
+    stores the bytes in latest_frame. The published image is pixel-for-pixel the
+    decoded (received) frame. Skips all work when no client is connected.
     """
-    min_interval = 1.0 / DISPLAY_FPS if DISPLAY_FPS > 0 else 0.0
-    last_emit = 0.0
-    encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), DISPLAY_JPEG_QUALITY]
+    encode_params = [int(cv2.IMWRITE_PNG_COMPRESSION), DISPLAY_PNG_COMPRESSION]
 
     while True:
         try:
@@ -742,27 +743,11 @@ def display_worker():
         except queue.Empty:
             continue
 
-        # Always encode the freshest frame available.
-        while True:
-            try:
-                img = display_queue.get_nowait()
-            except queue.Empty:
-                break
-
         if latest_frame.client_count() == 0:
             continue
 
-        now = time.time()
-        if now - last_emit < min_interval:
-            continue
-        last_emit = now
-
         try:
-            h, w = img.shape[:2]
-            if w > DISPLAY_MAX_WIDTH:
-                scale = DISPLAY_MAX_WIDTH / float(w)
-                img = cv2.resize(img, (DISPLAY_MAX_WIDTH, max(1, int(h * scale))))
-            ok, buf = cv2.imencode(".jpg", img, encode_params)
+            ok, buf = cv2.imencode(".png", img, encode_params)
             if ok:
                 latest_frame.set(buf.tobytes())
         except Exception as e:
@@ -804,7 +789,7 @@ class _MJPEGHandler(BaseHTTPRequestHandler):
                 if data is None:
                     continue
                 self.wfile.write(b"--frame\r\n")
-                self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                self.wfile.write(b"Content-Type: image/png\r\n")
                 self.wfile.write(f"Content-Length: {len(data)}\r\n\r\n".encode("ascii"))
                 self.wfile.write(data)
                 self.wfile.write(b"\r\n")
