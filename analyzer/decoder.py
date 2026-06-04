@@ -18,11 +18,11 @@ import json
 import os
 import socket
 import struct
-import subprocess
 import time
 import threading
 import queue
 import heapq
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import av
 import cv2
 
@@ -31,6 +31,12 @@ BUFFER_SIZE = 26214400
 LOG_FILE = "decoder.log"
 BRISQUE_EVERY = 1
 BRISQUE_WORKERS = 4
+
+# ── Live received-video display (MJPEG) ───────────────────────
+DISPLAY_HTTP_PORT = 9102      # MJPEG server port (exposed in docker-compose)
+DISPLAY_FPS = 25              # cap encoded frames per second
+DISPLAY_MAX_WIDTH = 1280      # downscale wider frames before JPEG encode
+DISPLAY_JPEG_QUALITY = 80     # cv2 JPEG quality (0-100)
 
 BRISQUE_MODEL = "/app/brisque_model_live.yml"
 BRISQUE_RANGE = "/app/brisque_range_live.yml"
@@ -45,6 +51,55 @@ recv_queue = queue.Queue(maxsize=10000)
 frame_queue = queue.Queue(maxsize=500)
 brisque_queue = queue.Queue(maxsize=500)
 result_queue = queue.Queue(maxsize=500)
+display_queue = queue.Queue(maxsize=2)   # decoded ndarrays awaiting JPEG encode (drop-oldest)
+
+
+class LatestFrame:
+    """Holds the most recent JPEG frame and wakes MJPEG clients when it changes.
+
+    Slow clients always jump to the newest frame (they wait on a version
+    counter), so no per-client lag accumulates. Tracks connected clients so the
+    encoder can skip work when nobody is watching.
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._data = None
+        self._version = 0
+        self._clients = 0
+
+    def set(self, data):
+        with self._cond:
+            self._data = data
+            self._version += 1
+            self._cond.notify_all()
+
+    def wait_newer(self, last_version, timeout):
+        """Block until a frame newer than last_version exists, or timeout.
+
+        Returns (version, data); data is None if it timed out with nothing new.
+        """
+        with self._cond:
+            if self._version == last_version:
+                self._cond.wait(timeout)
+            if self._version == last_version:
+                return last_version, None
+            return self._version, self._data
+
+    def add_client(self):
+        with self._cond:
+            self._clients += 1
+
+    def remove_client(self):
+        with self._cond:
+            self._clients = max(0, self._clients - 1)
+
+    def client_count(self):
+        with self._cond:
+            return self._clients
+
+
+latest_frame = LatestFrame()
 
 _frame_seq = 0
 _frame_seq_lock = threading.Lock()
@@ -356,14 +411,19 @@ def decode_worker():
         )
 
         decoded_img = None
+        display_img = None
         try:
             annexb = build_annexb(nal_units)
             packet = av.Packet(annexb)
             frames = codec.decode(packet)
             for frame in frames:
+                # Convert the first decoded frame once; reuse it for both the
+                # live display and (when measuring) BRISQUE so the picture shown
+                # is the exact frame that gets scored.
+                display_img = frame.to_ndarray(format="bgr24")
                 if should_measure:
-                    decoded_img = frame.to_ndarray(format="bgr24")
-                    break
+                    decoded_img = display_img
+                break
         except Exception as e:
             with _lock:
                 decode_errors += 1
@@ -412,6 +472,22 @@ def decode_worker():
                 inc_i_decode_ok += 1
             incomplete_i_decode_ok = inc_i_decode_ok
             incomplete_i_decode_fail = inc_i_decode_fail
+
+        # Hand the decoded frame to the display encoder (drop-oldest). On decode
+        # failure we never get here, so the viewer holds the last good frame —
+        # a visible freeze that mirrors the QoE drop.
+        if display_img is not None:
+            try:
+                display_queue.put_nowait(display_img)
+            except queue.Full:
+                try:
+                    display_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    display_queue.put_nowait(display_img)
+                except queue.Full:
+                    pass
 
         if decoded_img is not None:
             try:
@@ -579,10 +655,6 @@ def recv_worker():
         except (ValueError, OSError):
             continue
         try:
-            _hls_fwd_sock.sendto(data, ("127.0.0.1", HLS_RTP_PORT))
-        except Exception:
-            pass
-        try:
             recv_queue.put_nowait(data)
         except queue.Full:
             try:
@@ -596,26 +668,8 @@ def recv_worker():
 
 
 METRICS_JSON = "/app/metrics/brisque_metrics.json"
-HLS_DIR = "/app/metrics/hls"
-SDP_FILE = "/app/metrics/stream.sdp"
-HLS_RTP_PORT = 5005
 
 os.makedirs(os.path.dirname(METRICS_JSON), exist_ok=True)
-os.makedirs(HLS_DIR, exist_ok=True)
-
-with open(SDP_FILE, "w") as _sdp:
-    _sdp.write(
-        "v=0\r\n"
-        "o=- 0 0 IN IP4 127.0.0.1\r\n"
-        "s=QoEScope\r\n"
-        "c=IN IP4 127.0.0.1\r\n"
-        "t=0 0\r\n"
-        f"m=video {HLS_RTP_PORT} RTP/AVP 96\r\n"
-        "a=rtpmap:96 H264/90000\r\n"
-        "a=fmtp:96 packetization-mode=1\r\n"
-    )
-
-_hls_fwd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 _brisque_window = []
 _brisque_window_lock = threading.Lock()
@@ -671,72 +725,112 @@ def _metrics_aggregator():
         prev_incomplete = ic
 
 
-def _clear_hls_segments():
-    for f in os.listdir(HLS_DIR):
-        if f.endswith(".ts") or f.endswith(".m3u8"):
-            try:
-                os.remove(os.path.join(HLS_DIR, f))
-            except Exception:
-                pass
+def display_worker():
+    """Encode decoded frames to JPEG at a capped rate and publish them.
 
+    Pulls decoded ndarrays from display_queue, always jumps to the newest one,
+    throttles to DISPLAY_FPS, optionally downscales, JPEG-encodes, and stores the
+    bytes in latest_frame. Skips all work when no client is connected.
+    """
+    min_interval = 1.0 / DISPLAY_FPS if DISPLAY_FPS > 0 else 0.0
+    last_emit = 0.0
+    encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), DISPLAY_JPEG_QUALITY]
 
-_hls_restart_event = threading.Event()
-
-
-def _write_stream_id():
-    try:
-        with open(os.path.join(HLS_DIR, "stream_id.txt"), "w") as f:
-            f.write(str(int(time.time())))
-    except Exception:
-        pass
-    _hls_restart_event.set()
-
-
-def hls_writer():
-    cmd = [
-        "ffmpeg", "-y",
-        "-protocol_whitelist", "file,udp,rtp",
-        "-fflags", "nobuffer",
-        "-flags", "low_delay",
-        "-i", SDP_FILE,
-        "-c:v", "copy",
-        "-f", "hls",
-        "-hls_time", "1",
-        "-hls_list_size", "0",
-        "-hls_flags", "append_list+omit_endlist",
-        "-hls_init_time", "0",
-        f"{HLS_DIR}/stream.m3u8",
-    ]
-    log(f"HLS writer started: RTP stream copy → {HLS_DIR}/stream.m3u8")
     while True:
-        _clear_hls_segments()
-        _hls_restart_event.clear()
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            img = display_queue.get(timeout=1.0)
+        except queue.Empty:
+            continue
 
-        # wait for FFmpeg to exit OR a new stream signal
-        while proc.poll() is None:
-            if _hls_restart_event.wait(timeout=0.5):
-                log("New stream detected — restarting HLS FFmpeg")
-                proc.terminate()
-                try:
-                    proc.wait(timeout=3)
-                except Exception:
-                    proc.kill()
+        # Always encode the freshest frame available.
+        while True:
+            try:
+                img = display_queue.get_nowait()
+            except queue.Empty:
                 break
 
-        _clear_hls_segments()
-        time.sleep(0.5)
+        if latest_frame.client_count() == 0:
+            continue
+
+        now = time.time()
+        if now - last_emit < min_interval:
+            continue
+        last_emit = now
+
+        try:
+            h, w = img.shape[:2]
+            if w > DISPLAY_MAX_WIDTH:
+                scale = DISPLAY_MAX_WIDTH / float(w)
+                img = cv2.resize(img, (DISPLAY_MAX_WIDTH, max(1, int(h * scale))))
+            ok, buf = cv2.imencode(".jpg", img, encode_params)
+            if ok:
+                latest_frame.set(buf.tobytes())
+        except Exception as e:
+            log(f"[WARN] display encode failed: {e}")
+
+
+class _MJPEGHandler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # silence default stderr access logging
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0]
+
+        if path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ok")
+            return
+
+        if path != "/video.mjpg":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        self.send_response(200)
+        self.send_header("Age", "0")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+        self.end_headers()
+
+        latest_frame.add_client()
+        version = 0
+        try:
+            while True:
+                version, data = latest_frame.wait_newer(version, timeout=5.0)
+                if data is None:
+                    continue
+                self.wfile.write(b"--frame\r\n")
+                self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                self.wfile.write(f"Content-Length: {len(data)}\r\n\r\n".encode("ascii"))
+                self.wfile.write(data)
+                self.wfile.write(b"\r\n")
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            latest_frame.remove_client()
+
+
+def display_http_server():
+    server = ThreadingHTTPServer(("0.0.0.0", DISPLAY_HTTP_PORT), _MJPEGHandler)
+    server.daemon_threads = True
+    log(f"MJPEG display server on 0.0.0.0:{DISPLAY_HTTP_PORT} (GET /video.mjpg)")
+    server.serve_forever()
 
 
 threading.Thread(target=recv_worker, daemon=True).start()
 threading.Thread(target=decode_worker, daemon=True).start()
 threading.Thread(target=log_worker, daemon=True).start()
 threading.Thread(target=_metrics_aggregator, daemon=True).start()
-threading.Thread(target=hls_writer, daemon=True).start()
+threading.Thread(target=display_worker, daemon=True).start()
+threading.Thread(target=display_http_server, daemon=True).start()
 for _ in range(BRISQUE_WORKERS):
     threading.Thread(target=brisque_worker, daemon=True).start()
 
-log(f"Started: 1 recv + 1 decode + 1 log-ordering + 1 metrics + {BRISQUE_WORKERS} BRISQUE workers")
+log(f"Started: 1 recv + 1 decode + 1 log-ordering + 1 metrics + 1 display + {BRISQUE_WORKERS} BRISQUE workers")
 log(f"BRISQUE metrics JSON: {METRICS_JSON}")
 
 
@@ -760,7 +854,6 @@ while True:
         last_seq = seq
         incomplete = False
         saw_marker = False
-        _write_stream_id()
         log(f"New stream started: SSRC={ssrc:#010x}")
 
     elif ssrc != cur_ssrc:
@@ -772,7 +865,6 @@ while True:
         incomplete = False
         last_seq = seq
         current_frags = []
-        _write_stream_id()
 
     elif ts != cur_ts:
         # no marker means frame is incomplete

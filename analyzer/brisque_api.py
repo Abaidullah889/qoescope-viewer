@@ -2,10 +2,12 @@ import json
 import os
 import time
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 METRICS_JSON = "/app/metrics/brisque_metrics.json"
-HLS_DIR = "/app/metrics/hls"
+
+# Port of the MJPEG server hosted by decoder.py (see DISPLAY_HTTP_PORT there).
+DISPLAY_HTTP_PORT = 9102
 
 
 app = FastAPI(title="BRISQUE Metrics API")
@@ -35,43 +37,12 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/stream-version")
-def stream_version():
-    stream_id_file = os.path.join(HLS_DIR, "stream_id.txt")
-    if not os.path.exists(stream_id_file):
-        return {"version": "0"}
-    with open(stream_id_file) as f:
-        return {"version": f.read().strip()}
-
-
-@app.get("/hls.js")
-def hlsjs():
-    return FileResponse("/app/hls.min.js", media_type="application/javascript")
-
-
-@app.get("/hls/{filename}")
-def hls_file(filename: str):
-    if ".." in filename or "/" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-    path = os.path.join(HLS_DIR, filename)
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Segment not ready yet — stream may still be starting")
-    if filename.endswith(".m3u8"):
-        media_type = "application/vnd.apple.mpegurl"
-    elif filename.endswith(".ts"):
-        media_type = "video/MP2T"
-    else:
-        raise HTTPException(status_code=404)
-    return FileResponse(path, media_type=media_type)
-
-
 _VIEWER_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>QoEScope — Live Stream</title>
-  <script src="/hls.js"></script>
+  <title>QoEScope — Live Received Video</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -96,29 +67,34 @@ _VIEWER_HTML = """<!DOCTYPE html>
       transition: background 0.4s;
     }
     #dot.live { background: #66bb6a; box-shadow: 0 0 6px #66bb6a; }
-    main {
-      padding: 24px;
-      max-width: 1280px;
-      margin: 0 auto;
-    }
-    video {
-      width: 100%;
+    main { padding: 24px; max-width: 1280px; margin: 0 auto; }
+    #stage {
+      position: relative;
       background: #000;
       border: 1px solid #2a2a4a;
       border-radius: 6px;
-      display: block;
+      overflow: hidden;
+      min-height: 240px;
     }
-    #info {
-      margin-top: 10px;
+    #video { width: 100%; display: block; }
+    #overlay {
+      position: absolute;
+      top: 12px; left: 12px;
+      background: rgba(13, 13, 13, 0.72);
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 10px 14px;
       font-size: 0.8rem;
-      color: #666;
+      line-height: 1.55;
+      pointer-events: none;
+      min-width: 190px;
     }
-    #error-msg {
-      margin-top: 10px;
-      color: #ef5350;
-      font-size: 0.85rem;
-      display: none;
-    }
+    #overlay .row { display: flex; justify-content: space-between; gap: 18px; }
+    #overlay .k { color: #888; }
+    #overlay .v { color: #4fc3f7; font-weight: 600; }
+    #overlay .v.warn { color: #ffb74d; }
+    #overlay .v.bad  { color: #ef5350; }
+    #info { margin-top: 10px; font-size: 0.8rem; color: #666; }
   </style>
 </head>
 <body>
@@ -127,93 +103,85 @@ _VIEWER_HTML = """<!DOCTYPE html>
     <h1>Qoe<span>Scope</span> &mdash; Live Received Video</h1>
   </header>
   <main>
-    <video id="video" controls autoplay muted playsinline></video>
-    <div id="info">Waiting for stream to start&hellip;</div>
-    <div id="error-msg"></div>
+    <div id="stage">
+      <img id="video" alt="received video stream">
+      <div id="overlay">
+        <div class="row"><span class="k">BRISQUE avg</span><span class="v" id="m-avg">—</span></div>
+        <div class="row"><span class="k">BRISQUE last</span><span class="v" id="m-last">—</span></div>
+        <div class="row"><span class="k">Incomplete /s</span><span class="v" id="m-inc">—</span></div>
+        <div class="row"><span class="k">Decode err /s</span><span class="v" id="m-err">—</span></div>
+      </div>
+    </div>
+    <div id="info">Connecting to received video stream&hellip;</div>
   </main>
 
   <script>
-    const video   = document.getElementById('video');
-    const dot     = document.getElementById('dot');
-    const info    = document.getElementById('info');
-    const errDiv  = document.getElementById('error-msg');
-    const src     = '/hls/stream.m3u8';
+    const video = document.getElementById('video');
+    const dot   = document.getElementById('dot');
+    const info  = document.getElementById('info');
 
-    function setLive(on) {
+    // The MJPEG stream is served by the decoder on a dedicated port, on the
+    // same host the page was loaded from.
+    const MJPEG_PORT = '__MJPEG_PORT__';
+    const streamUrl = () =>
+      location.protocol + '//' + location.hostname + ':' + MJPEG_PORT +
+      '/video.mjpg?t=' + Date.now();
+
+    function connect() {
+      video.src = streamUrl();
+    }
+
+    // MJPEG <img> ends/errors if the server restarts or the stream drops;
+    // reconnect with a fresh URL.
+    video.addEventListener('error', () => {
+      setLive(false, 'Reconnecting to stream…');
+      setTimeout(connect, 1500);
+    });
+
+    function setLive(on, text) {
       dot.className = on ? 'live' : '';
-      info.textContent = on ? 'Stream live' : 'Reconnecting…';
+      if (text) info.textContent = text;
     }
 
-    let currentHls = null;
-    let knownVersion = null;
-
-    function tryLoad() {
-      errDiv.style.display = 'none';
-      if (currentHls) { currentHls.destroy(); currentHls = null; }
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          autoStartLoad: false,
-          maxBufferLength: 60,
-          maxMaxBufferLength: 120,
-          liveDurationInfinity: true,
-        });
-        currentHls = hls;
-        hls.loadSource(src);
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          hls.startLoad(-1);
-          setLive(true);
-        });
-
-        // Once seekable range is known, jump to the very first frame
-        video.addEventListener('canplay', function seekToStart() {
-          video.removeEventListener('canplay', seekToStart);
-          if (video.seekable.length > 0) {
-            video.currentTime = video.seekable.start(0);
-          }
-          video.play().catch(() => {});
-        });
-
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            setLive(false);
-            setTimeout(tryLoad, 3000);
-          }
-        });
-
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = src;
-        video.play().catch(() => {});
-        setLive(true);
-        info.textContent += ' (native HLS)';
-
-      } else {
-        errDiv.textContent = 'HLS playback is not supported in this browser.';
-        errDiv.style.display = 'block';
-      }
+    function fmt(x, digits) {
+      return (x === null || x === undefined) ? '—' : Number(x).toFixed(digits);
     }
 
-    // Poll for new stream — reload immediately when stream restarts
-    async function watchVersion() {
+    // Liveness is driven by metric freshness — fresh metrics mean the decoder is
+    // actively receiving and processing packets, i.e. the stream is live.
+    async function pollMetrics() {
       try {
-        const r = await fetch('/stream-version');
-        const { version } = await r.json();
-        if (knownVersion === null) {
-          knownVersion = version;
-        } else if (version !== knownVersion) {
-          knownVersion = version;
-          setLive(false);
-          info.textContent = 'New stream detected, reloading…';
-          setTimeout(tryLoad, 500);
+        const r = await fetch('/metrics', { cache: 'no-store' });
+        if (r.ok) {
+          const m = await r.json();
+          const live = !m.stale;
+          setLive(live, live
+            ? 'Live — video reconstructed from received packets'
+            : 'Stream idle — waiting for packets…');
+
+          document.getElementById('m-avg').textContent  = fmt(m.brisque_avg, 2);
+          document.getElementById('m-last').textContent = fmt(m.brisque_last, 2);
+
+          const incEl = document.getElementById('m-inc');
+          const inc = m.incomplete_pct_per_s;
+          incEl.textContent = fmt(inc, 1) + '%';
+          incEl.className = 'v' + (inc >= 20 ? ' bad' : inc >= 5 ? ' warn' : '');
+
+          const errEl = document.getElementById('m-err');
+          const err = m.decode_errors_per_s;
+          errEl.textContent = (err === null || err === undefined) ? '—' : err;
+          errEl.className = 'v' + (err >= 10 ? ' bad' : err >= 1 ? ' warn' : '');
+        } else {
+          setLive(false, 'Waiting for analyzer metrics…');
         }
-      } catch (_) {}
-      setTimeout(watchVersion, 2000);
+      } catch (_) {
+        setLive(false);
+      }
+      setTimeout(pollMetrics, 1000);
     }
 
-    tryLoad();
-    watchVersion();
+    connect();
+    pollMetrics();
   </script>
 </body>
 </html>"""
@@ -221,4 +189,4 @@ _VIEWER_HTML = """<!DOCTYPE html>
 
 @app.get("/viewer", response_class=HTMLResponse)
 def viewer():
-    return _VIEWER_HTML
+    return _VIEWER_HTML.replace("__MJPEG_PORT__", str(DISPLAY_HTTP_PORT))
