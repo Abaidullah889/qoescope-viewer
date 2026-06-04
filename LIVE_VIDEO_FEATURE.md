@@ -13,7 +13,7 @@ the video and the QoE metrics **at the same time**. When the metrics degrade (pa
 loss, incomplete frames), the picture visibly degrades too, so the two correlate.
 
 - **Viewer page:** `http://<host>:9101/viewer`
-- **Video stream (lossless multipart image stream):** `http://<host>:9102/video.mjpg`
+- **Video stream (MJPEG):** `http://<host>:9102/video.mjpg`
 - **Metrics (JSON):** `http://<host>:9101/metrics`
 
 The feature lives entirely in the `analyzer` service. Nothing in `probe`, `sender`,
@@ -59,14 +59,16 @@ drop on a broken stream rather than render the decoder's concealment.
 
 ## 4. The chosen approach (and why it fits)
 
-**Stream the analyzer's own decoded frames as a lossless multipart image stream.**
+**Stream the analyzer's own decoded frames as MJPEG.**
 
 The analyzer **already decodes every received frame** in `decode_worker()` (it needs the
-pixels for BRISQUE). We reuse that exact image, encode it **losslessly to PNG at native
-resolution** (no resampling, no lossy compression), and stream it to the browser as
-`multipart/x-mixed-replace` (an MJPEG-style stream), displayed in a plain `<img>` tag.
-The picture shown is therefore pixel-for-pixel the decoded (received) frame — nothing in
-the display path drops quality.
+pixels for BRISQUE). We reuse that exact image, encode it to **high-quality JPEG at native
+resolution with full chroma (4:4:4, no subsampling)**, and stream it to the browser as
+`multipart/x-mixed-replace` (MJPEG), displayed in a plain `<img>` tag. The displayed
+picture is the decoded (received) frame at native resolution; the JPEG step adds only
+imperceptible compression — far less than the H.264 already present — which keeps it small
+and fast enough for smooth real-time playback. (Truly lossless PNG was tried but is far too
+heavy to stream HD in real time — it stutters.)
 
 Why this satisfies all four requirements:
 
@@ -105,7 +107,7 @@ sender ──RTP/H.264/UDP──► probe (XDP counts) ──► forwarder.py �
                     display_queue (maxsize=2, drop-oldest)                      brisque_queue
                             │                                                           │
                     display_worker                                            brisque_worker ×4
-                    (cv2.imencode PNG, lossless, native resolution)           (cv2 BRISQUE compute)
+                    (cv2.imencode JPEG q95 4:4:4, native resolution)          (cv2 BRISQUE compute)
                             │                                                           │
                     LatestFrame holder (bytes + version + Condition)          _brisque_window
                             │                                                           │
@@ -138,7 +140,7 @@ the decoded frames in memory; bridging them to the API process would be needless
 | Constant | Value | Purpose |
 |---|---|---|
 | `DISPLAY_HTTP_PORT` | `9102` | Port the image server binds (exposed in docker-compose). |
-| `DISPLAY_PNG_COMPRESSION` | `1` | PNG zlib level 0–9. **Lossless at every level**; only trades encode speed vs. size (1 = fast). |
+| `DISPLAY_JPEG_QUALITY` | `95` | JPEG quality (0–100). High = near-lossless; full chroma (4:4:4) is forced when the OpenCV build supports it. |
 | `display_queue` | `maxsize=2` | Holds decoded ndarrays awaiting encode; **drop-oldest**. |
 
 **Frame capture — inside `decode_worker()`:**
@@ -155,11 +157,11 @@ for frame in frames:
 
 After a successful decode, the frame is pushed to `display_queue` with drop-oldest
 semantics. **On decode failure we never reach this push**, so the viewer keeps showing
-the last good frame — the intended "freeze = damage" behavior. The PNG encoding happens
+the last good frame — the intended "freeze = damage" behavior. The JPEG encoding happens
 on a *separate* thread, so decode speed is unaffected.
 
 **`LatestFrame` holder:**
-A small thread-safe class holding the most recent encoded-image (PNG) bytes plus:
+A small thread-safe class holding the most recent encoded-image (JPEG) bytes plus:
 - a monotonically increasing **version** counter,
 - a `threading.Condition` so MJPEG clients block until a newer frame exists
   (`wait_newer(last_version, timeout)`), and
@@ -170,16 +172,16 @@ Because clients wait on the version counter, a slow client simply jumps to the n
 frame on its next wake — **no per-client lag accumulates**.
 
 **`display_worker` thread:**
-Pulls from `display_queue` and **losslessly PNG-encodes each frame as soon as it arrives**
-— native resolution, no resampling, no lossy compression — returning early if
+Pulls from `display_queue` and **JPEG-encodes each frame as soon as it arrives** at
+native resolution with full chroma (4:4:4, when supported), returning early if
 `client_count() == 0`, via
-`cv2.imencode(".png", img, [IMWRITE_PNG_COMPRESSION, DISPLAY_PNG_COMPRESSION])`, then stores
-the bytes via `latest_frame.set(...)`. The published image is pixel-for-pixel the decoded
-frame.
+`cv2.imencode(".jpg", img, [IMWRITE_JPEG_QUALITY, DISPLAY_JPEG_QUALITY, …4:4:4…])`, then
+stores the bytes via `latest_frame.set(...)`. The published image is the decoded frame at
+native resolution with only imperceptible JPEG compression.
 
 **`_MJPEGHandler` + `display_http_server` (ThreadingHTTPServer on 9102):**
 - `GET /video.mjpg` → responds `multipart/x-mixed-replace; boundary=frame`, then loops:
-  `wait_newer()` → write `--frame`, `Content-Type: image/png`, `Content-Length`, the PNG
+  `wait_newer()` → write `--frame`, `Content-Type: image/jpeg`, `Content-Length`, the JPEG
   bytes. Increments the client count on connect, decrements it in a `finally` on
   disconnect (broken pipe / reset are swallowed cleanly).
 - `GET /health` → `200 ok`.
@@ -279,12 +281,15 @@ How to read them:
 
 All in `analyzer/decoder.py`:
 
-- The display is **lossless by design** — frames are delivered at native resolution as
-  PNG. `DISPLAY_PNG_COMPRESSION` only trades encode speed vs. size; raise it (toward 9)
-  for smaller frames at higher CPU cost, lower it (toward 0) for faster encoding. Quality
-  is unaffected at any level.
+- Frames are delivered at **native resolution** (no downscaling). `DISPLAY_JPEG_QUALITY`
+  trades quality vs. size/speed: raise toward 100 for closer-to-lossless at higher
+  bandwidth, lower it (e.g. 85) for smaller/smoother. Full chroma (4:4:4) is used when the
+  OpenCV build supports it, preserving color detail.
 - Every decoded frame is encoded as it arrives (no frame-rate cap), so the display
   frame rate equals the received stream's frame rate.
+- **Why not lossless PNG?** It was tried, but a native-resolution PNG per frame is far too
+  large/slow to encode and stream in real time, so HD playback stutters. High-quality JPEG
+  is visually indistinguishable while being small and fast.
 - **Different port:** change `DISPLAY_HTTP_PORT` and the matching `docker-compose.yml`
   ports entry; the viewer reads the port automatically via the `__MJPEG_PORT__` injection.
 
@@ -309,11 +314,11 @@ All in `analyzer/decoder.py`:
 ## 11. Trade-offs & limitations
 
 - **No audio.** The stream is video-only; irrelevant for video-QoE.
-- **High bandwidth** (a lossless PNG per frame, native resolution). This is the cost of
-  delivering the picture exactly as received; fine on localhost. The only saving applied
-  is "skip encoding when no client is connected." If bandwidth/CPU ever becomes a problem,
-  switching the encode to JPEG would shrink it — but that would re-introduce lossy
-  compression, so it is deliberately not done.
+- **Quality vs. real-time tradeoff.** Frames are high-quality JPEG (q95, 4:4:4) at native
+  resolution — visually indistinguishable from the decoded frame, but not bit-exact.
+  Truly lossless (PNG) was rejected because it cannot stream HD smoothly in real time.
+- **Bandwidth** is higher than HLS (an image per frame), but fine on localhost; the only
+  saving applied is "skip encoding when no client is connected."
 - **`BRISQUE last`** can be marginally out of frame order due to parallel workers; use
   `BRISQUE avg` for precise correlation.
 - **Per-second metric granularity** in the overlay vs. near-live video means correlation

@@ -32,13 +32,13 @@ LOG_FILE = "decoder.log"
 BRISQUE_EVERY = 1
 BRISQUE_WORKERS = 4
 
-# ── Live received-video display (lossless MJPEG/PNG) ──────────
-# Frames are delivered exactly as decoded: native resolution, no resampling,
-# and lossless PNG encoding (no re-compression artifacts). The picture shown is
-# pixel-for-pixel what was received over the network.
+# ── Live received-video display (MJPEG) ───────────────────────
+# Frames are sent at native resolution (no resampling). They are JPEG-encoded at
+# high quality with full chroma (4:4:4, no subsampling), which is visually
+# indistinguishable from the decoded frame but small/fast enough for smooth
+# real-time playback — lossless PNG is too heavy for HD in real time.
 DISPLAY_HTTP_PORT = 9102      # MJPEG server port (exposed in docker-compose)
-DISPLAY_PNG_COMPRESSION = 1   # PNG zlib level 0-9; lossless at every level,
-                              # only affects encode speed vs. size (1 = fast)
+DISPLAY_JPEG_QUALITY = 95     # cv2 JPEG quality (0-100); high = near-lossless
 
 BRISQUE_MODEL = "/app/brisque_model_live.yml"
 BRISQUE_RANGE = "/app/brisque_range_live.yml"
@@ -728,14 +728,20 @@ def _metrics_aggregator():
 
 
 def display_worker():
-    """Losslessly encode decoded frames to PNG as they arrive and publish them.
+    """Encode decoded frames to high-quality JPEG as they arrive and publish them.
 
-    Pulls decoded ndarrays from display_queue and PNG-encodes each one as soon as
-    it arrives — native resolution, no resampling, no lossy compression — then
-    stores the bytes in latest_frame. The published image is pixel-for-pixel the
-    decoded (received) frame. Skips all work when no client is connected.
+    Pulls decoded ndarrays from display_queue and JPEG-encodes each one as soon as
+    it arrives — native resolution, no resampling, high quality with full chroma
+    (4:4:4) — then stores the bytes in latest_frame. Skips all work when no client
+    is connected.
     """
-    encode_params = [int(cv2.IMWRITE_PNG_COMPRESSION), DISPLAY_PNG_COMPRESSION]
+    encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), DISPLAY_JPEG_QUALITY]
+    # Disable chroma subsampling (4:4:4) so color is preserved at full resolution,
+    # when this OpenCV build supports it.
+    _sf = getattr(cv2, "IMWRITE_JPEG_SAMPLING_FACTOR", None)
+    _sf444 = getattr(cv2, "IMWRITE_JPEG_SAMPLING_FACTOR_444", None)
+    if _sf is not None and _sf444 is not None:
+        encode_params += [int(_sf), _sf444]
 
     while True:
         try:
@@ -747,7 +753,7 @@ def display_worker():
             continue
 
         try:
-            ok, buf = cv2.imencode(".png", img, encode_params)
+            ok, buf = cv2.imencode(".jpg", img, encode_params)
             if ok:
                 latest_frame.set(buf.tobytes())
         except Exception as e:
@@ -789,7 +795,7 @@ class _MJPEGHandler(BaseHTTPRequestHandler):
                 if data is None:
                     continue
                 self.wfile.write(b"--frame\r\n")
-                self.wfile.write(b"Content-Type: image/png\r\n")
+                self.wfile.write(b"Content-Type: image/jpeg\r\n")
                 self.wfile.write(f"Content-Length: {len(data)}\r\n\r\n".encode("ascii"))
                 self.wfile.write(data)
                 self.wfile.write(b"\r\n")
